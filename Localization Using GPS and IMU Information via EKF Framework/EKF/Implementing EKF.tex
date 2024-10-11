@@ -1,0 +1,260 @@
+\textbf{List the formulas you have used for the implementation of Kalman filter}\\
+
+Implementing the extended Kalman filter for this simulation is to be done on a specific time frame of the UAV's flight - 10 minutes before the 2nd time the UAV takes off and 5 minutes after the UAV lands the 2nd time. For this time interval, begin by defining a start time (1443 seconds - 600 seconds) and an end time (1685 seconds + 300 seconds). Once this time is defined, identify the index within the time inputs to understand what index Matlab needs to begin implementing the EKF and what index it needs to stop. This is the first step in implementing the EKF.\\
+To Implement an Extended Kalman Filter, begin by defining the initial state variables, the initial state covariance matrix (P), and the Measurement Covariance matrix (R):
+\subsection*{State Variables}
+
+\[
+x_0 = 
+\begin{bmatrix}
+x_n \\
+y_n \\
+z_n \\
+v_{x} \\
+v_{y} \\
+v_{z} \\
+b_x \\
+b_y \\
+b_z
+\end{bmatrix}
+=
+\begin{bmatrix}
+x_n (@start_{time} index) \\
+y_n (@start_{time} index) \\
+z_n (@start_{time} index) \\
+0 \\
+0 \\
+0 \\
+0 \\
+0 \\
+0
+\end{bmatrix}
+\]\\
+\textbf{Please explain the physical meanings of your state variables used in your EKF and which coordinate system they are defined in. }\\
+
+Where $x_n$, $y_n$ and $z_n$ are the NED position coordinates, $v_x$, $v_y$, $v_z$ are the velocities of the UAV also in the NED frame, and $b_x$, $b_y$, $b_z$ are the accelerometer bias provided in the body frame.
+
+\subsection*{State Covariance (P Matrix)}
+
+\[
+P =
+\begin{bmatrix}
+P_{xx} & P_{xy} & P_{xz} & P_{xv_x} & P_{xv_y} & P_{xv_z} & P_{xb_x} & P_{xb_y} & P_{xb_z} \\
+P_{yx} & P_{yy} & P_{yz} & P_{yv_x} & P_{yv_y} & P_{yv_z} & P_{yb_x} & P_{yb_y} & P_{yb_z} \\
+P_{zx} & P_{zy} & P_{zz} & P_{zv_x} & P_{zv_y} & P_{zv_z} & P_{zb_x} & P_{zb_y} & P_{zb_z} \\
+P_{v_xx} & P_{v_xy} & P_{v_xz} & P_{v_xv_x} & P_{v_xv_y} & P_{v_xv_z} & P_{v_xb_x} & P_{v_xb_y} & P_{v_xb_z} \\
+P_{v_yx} & P_{v_yy} & P_{v_yz} & P_{v_yv_x} & P_{v_yv_y} & P_{v_yv_z} & P_{v_yb_x} & P_{v_yb_y} & P_{v_yb_z} \\
+P_{v_zx} & P_{v_zy} & P_{v_zz} & P_{v_zv_x} & P_{v_zv_y} & P_{v_zv_z} & P_{v_zb_x} & P_{v_zb_y} & P_{v_zb_z} \\
+P_{b_xx} & P_{b_xy} & P_{b_xz} & P_{b_xv_x} & P_{b_xv_y} & P_{b_xv_z} & P_{b_xb_x} & P_{b_xb_y} & P_{b_xb_z} \\
+P_{b_yx} & P_{b_yy} & P_{b_yz} & P_{b_yv_x} & P_{b_yv_y} & P_{b_yv_z} & P_{b_yb_x} & P_{b_yb_y} & P_{b_yb_z} \\
+P_{b_zx} & P_{b_zy} & P_{b_zz} & P_{b_zv_x} & P_{b_zv_y} & P_{b_zv_z} & P_{b_zb_x} & P_{b_zb_y} & P_{b_zb_z}
+\end{bmatrix}
+= I_{9x9} (9x9 Identity Matrix)
+\]\\
+
+\textbf{Please explain what values you have chosen to initialize the state variables and the state covariance matrix P. Why these values?}\\
+
+The state variables have been initialized with the first value of the NED positions at the provided start time, since that is what the EKF implementation required (for the UAV being 10 minutes before taking off), and therefore, using the index created with the time, we can implement that start index to capture the initial NED position of the UAV for our initial state vector. The velocities are initialized at 0 to assume that the UAV is beginning at a stationary flight, with the velocity incrementally updating through implementing EKF using accelerometer readings. If the velocity was initialized incorrectly, the beauty of EKF is that it would adjust the velocity estimates based on subsequent readings. The accelerometer bias was initialized with 0's as well since the initial bias is unknown and it is common practice to set the values to 0 and let the EKF estimate it over its iterations since the EKF will cause the bias to converge over time to the correct estimate of the bias based on the sensor readings. As more data is provided from the IMU and the GPS, the filter will help adjust the bias estimates to provide a more accurate value for the accelerometer bias, which we will show through a plot. For the state covariance, we initialize the data as a 9x9 identity matrix, with a weight of 1 provided for the diagonals of P, which is the uncertainty of each state variable ($P_{xx}, P_{yy}, P_{zz}, P_{vxvx}, P_{vyvy}, P_{vzvz}, P_{bxbx}, P_{byby}, P_{bzbz}$, where the diagonals of the P matrix = the variance of each state, and the non-diagonals = covariance. With a weight of 1, we begin by telling the system that there is a moderate degree of uncertainty for each state variable and this uncertainty is the same - a neutral, non-bias assumption of uncertainty.\\
+
+Now, the process requires the system to be defined that we will implement EKF on to estimate the NED Position and Velocity.
+\subsection*{System:}
+
+\begin{align}
+    \mathbf{x}(k+1) &= F\mathbf{x}(k) + G\mathbf{u}(k) + \mathbf{v}(k) \\
+    \mathbf{y}(k) &= H\mathbf{x}(k) + \mathbf{w}(k)
+\end{align}
+Where the respective matrices can be computed using the process model shown below:
+
+\subsection*{Process Model (works for navigation within small earth surface area)}
+
+\[
+\begin{bmatrix}
+x \\
+y \\
+z \\
+v_x \\
+v_y \\
+v_z \\
+b_x \\
+b_y \\
+b_z
+\end{bmatrix}_{k+1}
+=
+\underbrace{
+\begin{bmatrix}
+1 & 0 & 0 & dt & 0 & 0 & -dt^2/2 & 0 & 0 \\
+0 & 1 & 0 & 0 & dt & 0 & 0 & -dt^2/2 & 0 \\
+0 & 0 & 1 & 0 & 0 & dt & 0 & 0 & -dt^2/2 \\
+0 & 0 & 0 & 1 & 0 & 0 & -dt & 0 & 0 \\
+0 & 0 & 0 & 0 & 1 & 0 & 0 & -dt & 0 \\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & -dt \\
+0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1
+\end{bmatrix}
+}_{F}
+\begin{bmatrix}
+x \\
+y \\
+z \\
+v_x \\
+v_y \\
+v_z \\
+b_x \\
+b_y \\
+b_z
+\end{bmatrix}_k
++
+\underbrace{
+\begin{bmatrix}
+\frac{dt^2}{2} & 0 & 0 \\
+0 & \frac{dt^2}{2} & 0 \\
+0 & 0 & \frac{dt^2}{2} \\
+dt & 0 & 0 \\
+0 & dt & 0 \\
+0 & 0 & dt \\
+0 & 0 & 0 \\
+0 & 0 & 0 \\
+0 & 0 & 0 
+\end{bmatrix}
+}_{G}
+\begin{bmatrix}
+R_{g/b} \\
+0 \\
+g
+\end{bmatrix}
+\begin{bmatrix}
+a_x \\
+a_y \\
+a_z \\
+1
+\end{bmatrix}_k
+\]
+
+Where $(R_{g/b})$ is a rotation matrix to convert the values from the body frame to the ground frame.
+
+\[
+R_{g/b} = 
+\begin{pmatrix}
+\dot{X}_n \\
+\dot{Y}_n \\
+\dot{Z}_n
+\end{pmatrix}
+=
+\begin{bmatrix}
+c_\psi c_\theta & c_\psi s_\theta s_\phi - s_\psi c_\phi & c_\psi s_\theta c_\phi + s_\psi s_\phi \\
+s_\psi c_\theta & s_\psi s_\theta s_\phi + c_\psi c_\phi & s_\psi s_\theta c_\phi - c_\psi s_\phi \\
+-s_\theta       & c_\theta s_\phi                         & c_\theta c_\phi
+\end{bmatrix}
+\begin{pmatrix}
+u \\
+v \\
+w
+\end{pmatrix}
+\]
+
+\subsection*{Process Noise Covariance}
+
+\[
+Q = G
+\begin{bmatrix}
+q_x & 0 & 0 & 0 \\
+0 & q_y & 0 & 0 \\
+0 & 0 & q_z & 0 \\
+0 & 0 & 0 & 0
+\end{bmatrix}
+G' = 
+G
+\begin{bmatrix}
+0.7 & 0 & 0 & 0 \\
+0 & 0.4 & 0 & 0 \\
+0 & 0 & 1.5 & 0 \\
+0 & 0 & 0 & 0
+\end{bmatrix}
+G'
+\]
+
+\subsection*{Measurement Noise Covariance (R Matrix)}
+
+\[
+R =
+\begin{bmatrix}
+R_{xx} & 0      & 0      \\
+0      & R_{yy} & 0      \\
+0      & 0      & R_{zz}
+\end{bmatrix}
+= 
+\begin{bmatrix}
+eph & 0      & 0      \\
+0      & eph & 0      \\
+0      & 0      & epv
+\end{bmatrix} * 1e-3
+\]
+
+\subsubsection*{1. Predict}
+
+\begin{align}
+    \hat{\mathbf{x}}(k+1 | k) &= F \hat{\mathbf{x}}(k | k) + G\mathbf{u}(k) \\
+    P(k+1 | k) &= F P(k | k) F^T + Q
+\end{align}
+
+\subsubsection*{2. Correction}
+
+\begin{align}
+    S &= H P(k+1 | k) H^T + R \\
+    W &= P(k+1 | k) H^T S^{-1} \\
+    \Delta \mathbf{x} &= W \left( \mathbf{y}(k+1) - H \hat{\mathbf{x}}(k+1 | k) \right)
+\end{align}
+
+\subsubsection*{3. Update}
+
+\begin{align}
+    \hat{\mathbf{x}}(k+1 | k+1) &= \hat{\mathbf{x}}(k+1 | k) + W \mathbf{v} \\
+    P(k+1 | k+1) &= P(k+1 | k) - W S W^T
+\end{align}
+Where H is the measurement matrix relating the state vector to the measurements, mapping the state space to the measurement space. The matrix H in our system is given by:
+\begin{align*}
+    H = \begin{bmatrix}
+    1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0
+    \end{bmatrix}
+\end{align*}
+
+\textbf{Explain the choice of Q and R matrices for EKF implementation.}\\
+
+Initially, I defined the Q matrix with 1's in the $q_x, q_y, q_z$ diagonals, and the R matrix to be the horizontal and vertical variance from the GPS since GPS measurements are the most accurate. Using these initial values of Q and R, I defined the process and implemented the EKF using just GPS readings to see if my Q and R matrix of the model was accurate. The first attempt showed that there was a lot of drift in my EKF estimated position, as well as velocity. Therefore I knew that I had to tune my Q and R matrix to allow my EKF estimation to better match my NED positions from GPS raw measurements. The tuning process for both Q and R were a little different since each matrix affected the system differently. I started by focusing on Q. The Q matrix - process noise covariance supports the system by defining the uncertainty in the IMU measurements from the accelerometer. Theoretically, if the weight on Q was too large, EKF would result in trusting the IMU readings more than it should, resulting in a greater drift, and if the value was too small, then the GPS readings would be trusted more, producing greater noise in the system. Therefore, knowing that GPS was the most accurate reading I had, I reduced my Q from 1's to decimals (i.e., 0.7, 0.4, 1.5), which provided a more accurate estimation from EKF to the GPS to NED measurements. Once I was able to tune Q, it was time to focus on R - the measurement noise covariance. R is used to define the uncertainty present in our GPS data, which means that the more noisy the GPS data is, the better R can help in reflecting the actual noise characteristics of GPS. Theoretically, increasing R would result in EKF not trusting GPS measurements as much, and reducing R would cause the system to trust the noisy GPS data more. Therefore, from trial and error of different values, I was able to capture an R matrix that better estimated my NED position with the GPS horizontal and vertical covariance values being reduced by 1e-3.\\
+
+Once I was able to define a Q and R matrix that was able to estimate NED position and velocity accurately, I could address the issue of the difference in GPS and IMU update rates.\\
+
+\textbf{GPS update rate is slower than IMU update rate, explain how you implemented code to address this practical issue.}\\
+
+Since the GPS update rate is slower than the IMU update rate, I decided to not take all GPS inputs to update the prediction step of the NED position estimate and to instead use a time gap (i.e., take fewer GPS inputs to allow for correction and update step to match IMU better). This time gap was selected to be every 2nd GPS input for 1 IMU update (e.g., 1st update step using IMU, 2nd update step comes from correction step with GPS update, and then an update step using GPS). The value of using every 2nd GPS input vs. 5th or 10th was done using an iterative process, where the process began without skipping some GPS values (i.e, mod (i,1) == 0) to see the estimation of NED positions implementing EKF. From skipping no values, we iterated by increasing the # of GPS inputs being skipped up until 10. As the # of inputs being skipped increased over 4, the estimation started to produce a larger drift for the NED positions. This resulted in the final implementation to capture every 2nd GPS input into correction and update step of the EKF implementation to produce the figure shown below.\\
+This implementation of not updating every prediction value using GPS input allowed to estimate the NED positions with more accuracy as shown in the plot below. It is visible that EKF implementation (shown through the Black line) is mimicking the NED positions from GPS (shown through the dotted red line). 
+
+\begin{figure}[H]
+  \centering
+ \includegraphics[width=0.8\linewidth, height=0.7\linewidth]{EKF/EKF_Pos.jpg}  
+\caption{NED Positions Estimated from EKF Implementation}
+\label{fig:EKFPos}
+\end{figure}
+\\
+Since the state estimate also provided us with velocity and acceleration bias, to compare the velocity from the GPS-derived NED positions, we differentiated the NED positions from raw GPS measurement. First, define the time derivative $dt_v$ which is the derivative of the time-interval for the UAV's 2nd flight, which was 10 minutes before taking off and 5 minutes after landing. To calculate the velocity, we differentiate the NED positions from the start-to-end index defined for our EKF implementation and we divide it by $dt_v$.
+\begin{align*}
+    \Delta t_v &= \text{diff}( \text{time\_int} ) \\
+    v_n &= \frac{\text{diff}(x_n( \text{start\_i} : \text{end\_i}))}{\Delta t_v} \\
+    v_e &= \frac{\text{diff}(y_n( \text{start\_i} : \text{end\_i}))}{\Delta t_v} \\
+    v_d &= \frac{\text{diff}(z_n( \text{start\_i} : \text{end\_i}))}{\Delta t_v} \\
+\end{align*}\\
+Since the Velocity of the UAV from NED was captured through differentiating the NED positions, the EKF estimation of velocity uses both IMU data and GPS data to estimate velocity, while accounting for sensor noise and drift. It filters the noise through using the process model and Kalman gain, allowing an estimation of a smoother and less noisy velocity estimate in comparison to the differentiated NED position - velocity. Since the EKF incorporates bias correction, the EKF is able to correct the velocity estimate based on accelerometer bias over time allowing it to reduce the impact of the sensor's drift on the estimated velocity, providing a more accurate velocity reading. NED-differentiated velocity is more accurate when the GPS data is more frequent and with minimal noise, but when the motion is fast or involves frequent changes in velocity, the EKF is more accurate due to the high IMU update rate. In our case, the EKF estimated velocity is more accurate and can be seen from the graph below.
+
+\begin{figure}[H]
+  \centering
+\includegraphics[width=0.8\linewidth, height=0.7\linewidth]{EKF/EKF_Vel.jpg}  
+\caption{NED Velocity Estimated from EKF Implementation}
+\label{fig:EKFVel}
+\end{figure}
+
+You can find below the code used to implement EKF and produce the necessary graphs in section 5, Implementing Extended Kalman Filter for NED Position and Velocity.
+\label{EKF Estimated NED Matlab Code}
+\input{EKF/EKF Matlab Code}

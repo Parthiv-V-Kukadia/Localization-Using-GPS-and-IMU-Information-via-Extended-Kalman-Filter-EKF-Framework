@@ -1,0 +1,32 @@
+\begin{table}[h!]
+\centering
+\begin{tabular}{>{\raggedright\arraybackslash}p{8cm} p{8cm}}
+\midrule
+$a_{cx}$ = x-axis accelerometer reading & $a_{cy}$ = y-axis accelerometer reading \\
+$a_{cz}$ = z-axis accelerometer reading & $\Phi$ = Roll angle (phi) \\
+$\Theta$ = Pitch angle (theta) & $\Psi$ = Yaw angle (psi) \\
+fix = GPS position fix signal & $GPS_{\text{sat}}$ = Number of GPS satellites \\
+$eph$ = GPS horizontal variance (m) & $epv$ = GPS vertical variance (m) \\
+$lat$ = GPS Latitude & $lat_{\text{ref}}$ = Latitude Reference (initial UAV pos.) \\
+$lon$ = GPS Longitude & $lon_{\text{ref}}$ = Longitude Reference (initial UAV pos.) \\
+$alt$ = GPS altitude & $alt_{\text{ref}}$ = Altitude Reference (initial UAV pos.) \\
+$a$ = Equatorial radius (m) & $b$ = Polar radius (m) \\
+$e$ = Eccentricity of ellipsoid & $N$ = Radius of curvature \\
+$x_{e0}$ = x-axis ECEF reference pos. & $x_e$ = x-axis ECEF frame \\
+$y_{e0}$ = y-axis ECEF reference pos. & $y_e$ = y-axis ECEF frame \\
+$z_{e0}$ = z-axis ECEF reference pos. & $z_e$ = z-axis ECEF frame \\
+$x_n$ = NED pointing North & $y_n$ = NED pointing East \\
+$z_n$ = NED pointing Down & $x$ = State vector $[x,v,b]$ \\
+$v_x$ = x-axis velocity NED frame & $v_y$ = y-axis velocity NED frame \\
+$v_z$ = z-axis velocity NED frame & $b_x$ = x-axis accelerometer bias \\
+$b_y$ = y-axis accelerometer bias & $b_z$ = z-axis accelerometer bias \\
+$F$ = State Matrix & $P$ = Covariance matrix \\
+$P_0$ = Initial covariance matrix & $u$ = Input vector \\
+$G$ = Input Matrix & $y$ = Output vector \\
+$H$ = Output (measurement) Matrix & $x_0$ = Initial state vector \\
+$\hat{X}$ = State matrix estimate & $Q$ = Process noise covariance matrix \\
+$R$ = Measurement noise covariance matrix & $W$ = Optimal Kalman gain matrix \\
+$S$ = Innovation covariance matrix & $R_{g/b}$ = Rotation matrix from body to ground frame \\
+\bottomrule
+\end{tabular}
+\end{table}
